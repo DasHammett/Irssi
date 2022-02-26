@@ -42,16 +42,21 @@ my $previous = "";
 
 sub track_join {
     my ($server, $chan, $joined_nick, $address, $account, $realname) = @_;
-    $joined_nick= conv($joined_nick);
+    my $joined_nick= conv($joined_nick);
     my @spl   = split(/@/, $address);
     my $mask  = $spl[1];
   
     if (! (exists $hash{$mask} )) {
-        $hash{$mask} = $joined_nick 
+        $hash{$mask} = $joined_nick;
+        $previous = ""
     } else {
-       $hash{$mask} = $hash{$mask} . ", $joined_nick"
-    }
- }
+       $hash{$mask} = $hash{$mask} . ", $joined_nick";
+       my $all_matches = $hash{$mask};
+       my @all_matches_split = split /,/, $all_matches;
+       my $found_nicks = join(",", grep(!/$joined_nick/, @all_matches_split));
+       $previous = "Previously known as: " . $found_nicks
+     }
+}
 
 sub conv {
     my $data = $_[0];
@@ -102,7 +107,6 @@ sub search_previous {
    if ($found ne '') {
          my @mask_found = split(/@/,$found->{host});
          my $mask = $mask_found[1];
-          
          my $all_matches = $hash{$mask};
          my @all_matches_split = split /,/, $all_matches;
          my $found_nicks = join(",", grep(!/$arg/, @all_matches_split));
