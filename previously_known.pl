@@ -20,14 +20,19 @@ $VERSION      = "0.2";
       license => "Public Domain",
       url => "none"
 );
+my %hash;
 my $env = $ENV{"HOME"};
 my $nickdb = $env . "/.irssi/nicks.db";
 
 if (!-e $nickdb) {truncate $nickdb,0;};
-open(my $original_file, "<", $nickdb);
-my @track_file = <$original_file>;
-close($original_file);
+open(my $file, "<", $nickdb) or die "Cannot open file(s)";
 
+while (<$file>) {
+   chomp;
+   my @array = split /;/, $_;
+   $hash{$array[0]} = $array[1];
+}
+close $file;
 
 #foreach my $line (@track_file) {
 #   Irssi::print("$line")
@@ -39,31 +44,14 @@ sub track_join {
     my ($server, $chan, $joined_nick, $address, $account, $realname) = @_;
     $joined_nick= conv($joined_nick);
     my @spl   = split(/@/, $address);
-    #    my $ident = $spl[0];
     my $mask  = $spl[1];
-    #($ident   = $ident) =~ s/^~//;
-    #$ident    = conv($ident);
-
-    if(!grep(/$joined_nick;$mask/, @track_file)) {
-        push(@track_file, "$joined_nick;$mask\n")
-     }
-
-    my @matches;
-    foreach my $line (@track_file) {
-        my @saved = split(";", $line);
-        my $saved_address = $saved[1];
-        my $saved_nick = $saved[0];
-        if (grep(/$mask/, $saved_address)) {
-            push (@matches, $saved_nick) if ($saved_nick ne $joined_nick);
-        }
-        my $found_nicks = join(", ", @matches);
-        if ($found_nicks ne "") { 
-           $previous = "Previously known as: " . $found_nicks 
-        } else { 
-           $previous = ""
-        };
-     };
-}
+  
+    if (! (exists $hash{$mask} )) {
+        $hash{$mask} = $joined_nick 
+    } else {
+       $hash{$mask} = $hash{$mask} . ", $joined_nick"
+    }
+ }
 
 sub conv {
     my $data = $_[0];
@@ -82,27 +70,24 @@ sub uniq {
 }
 
 sub save_to_file {
-   open(my $fh, ">", $nickdb);
-   @track_file = uniq(@track_file);
-   foreach my $line (@track_file) {
-      local $\ = "";
-      print $fh "$line";
-   };
-   close $fh;
+   open(FH , ">", $nickdb) or die $!;
+   foreach my $key ( sort keys %hash ) {
+      print FH join(";",$key,$hash{$key}) . "\n";
+   }
+   close(FH);
 }
 
 sub nick_changed {
     my ($server, $new_nick, $old_nick, $address) = @_;
-    $new_nick = conv($new_nick);
+    my $new_nick = conv($new_nick);
     my @spl   = split(/@/, $address);
     my $mask  = $spl[1];
-    #my $ident = $spl[0];
-    #($ident   = $ident) =~ s/^~//;
-    #$ident    = conv($ident);
     
-    if(!grep(/$new_nick;$mask/, @track_file)) {
-       push(@track_file, "$new_nick;$mask\n")
-     }
+    if (! (exists $hash{$mask} )) {
+        $hash{$mask} = $new_nick 
+    } else {
+       $hash{$mask} = $hash{$mask} . ", $new_nick"
+    }
  }
 
 sub my_expando { $previous };
@@ -110,23 +95,19 @@ sub my_expando { $previous };
 sub search_previous {
    my ($arg, $server, $witem) = @_;
    ($arg = $arg) =~ s/\s//g;
+   $arg = conv($arg);
    return unless (defined $witem && $witem->{type} eq 'CHANNEL');
    my $chan = $witem->{name};
    my $found = $witem->nick_find($arg);
    if ($found ne '') {
          my @mask_found = split(/@/,$found->{host});
          my $mask = $mask_found[1];
-         my @matches;
-         foreach my $line (@track_file) {
-              my @saved = split(";", $line);
-              my $saved_address = $saved[1];
-              my $saved_nick = $saved[0];
-              if (grep(/$mask/, $saved_address)) {
-                  push (@matches, $saved_nick) if ($saved_nick ne $arg);
-              } 
-          };
-          my $found_nicks = join(", ", @matches);
-          if ($found_nicks ne '') {
+          
+         my $all_matches = $hash{$mask};
+         my @all_matches_split = split /,/, $all_matches;
+         my $found_nicks = join(",", grep(!/$arg/, @all_matches_split));
+
+         if ($found_nicks ne '') {
           Irssi::print("\cc03$arg\co" . " was previously known as " . "\cc04$found_nicks\co");
           } else {
               Irssi::print("No previous nicks found for " . "\cc03$arg\co")
@@ -136,6 +117,11 @@ sub search_previous {
     };
  }
 
+sub hash_count {
+   my $size = keys %hash;
+   Irssi::print($size);
+}
+
 
 Irssi::expando_create("previous_nick", \&my_expando, {"message join" => "none"});
 
@@ -144,4 +130,5 @@ Irssi::signal_add_first("server quit", \&save_to_file);
 #Irssi::signal_add_first("server disconnected", \&save_to_file);
 Irssi::signal_add("message nick", \&nick_changed);
 Irssi::command_bind("previous_nick_save", \&save_to_file);
+Irssi::command_bind("previous_nick_count", \&hash_count);
 Irssi::command_bind("previous_nick", \&search_previous)
