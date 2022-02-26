@@ -4,19 +4,17 @@ use strict;
 use File::Glob qw/:bsd_glob/;
 use vars qw($VERSION %IRSSI);
 
-$VERSION      = "0.2";
+$VERSION      = "0.3";
 
 %IRSSI = (
       authors => "Hammett",
-      contact => "freenode",
+      contact => "irc-hispano",
       name => "Previously_known",
       description => "Prints previous known nick for IP" .
                      "Creates a variable 'previous_nick'" .
                      "to be used in /format in 'message join." .
                      "signal." .
-                     "Autosave on server disconnected" .
-                     "TODO: " .
-                     "work with relative path for nick.db",
+                     "Autosave on server disconnected",
       license => "Public Domain",
       url => "none"
 );
@@ -34,29 +32,7 @@ while (<$file>) {
 }
 close $file;
 
-#foreach my $line (@track_file) {
-#   Irssi::print("$line")
-#}
-
 my $previous = "";
-
-sub track_join {
-    my ($server, $chan, $joined_nick, $address, $account, $realname) = @_;
-    my $joined_nick= conv($joined_nick);
-    my @spl   = split(/@/, $address);
-    my $mask  = $spl[1];
-  
-    if (! (exists $hash{$mask} )) {
-        $hash{$mask} = $joined_nick;
-        $previous = ""
-    } else {
-       $hash{$mask} = $hash{$mask} . ", $joined_nick";
-       my $all_matches = $hash{$mask};
-       my @all_matches_split = split /,/, $all_matches;
-       my $found_nicks = join(",", grep(!/$joined_nick/, @all_matches_split));
-       $previous = "Previously known as: " . $found_nicks
-     }
-}
 
 sub conv {
     my $data = $_[0];
@@ -69,9 +45,19 @@ sub conv {
     return $data;
 }
 
-sub uniq {
-   my %seen;
-   grep !$seen{$_}++, @_;
+sub track_join {
+    my ($server, $chan, $joined_nick, $address, $account, $realname) = @_;
+    my $joined_nick= conv($joined_nick);
+    my @spl   = split(/@/, $address);
+    my $mask  = $spl[1];
+  
+    if (! (exists $hash{$mask} )) {
+        $hash{$mask} = $joined_nick;
+        $previous = ""
+    } else {
+       $previous = "Previously known as: " . $hash{$mask};
+       $hash{$mask} = $hash{$mask} . ", $joined_nick"
+     }
 }
 
 sub save_to_file {
@@ -121,17 +107,9 @@ sub search_previous {
     };
  }
 
-sub hash_count {
-   my $size = keys %hash;
-   Irssi::print($size);
-}
-
-
 Irssi::expando_create("previous_nick", \&my_expando, {"message join" => "none"});
-
 Irssi::signal_add("message join", \&track_join);
 Irssi::signal_add_first("server quit", \&save_to_file);
-#Irssi::signal_add_first("server disconnected", \&save_to_file);
 Irssi::signal_add("message nick", \&nick_changed);
 Irssi::command_bind("previous_nick_save", \&save_to_file);
 Irssi::command_bind("previous_nick_count", \&hash_count);
