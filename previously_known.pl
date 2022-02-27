@@ -112,5 +112,4 @@ Irssi::signal_add("message join", \&track_join);
 Irssi::signal_add_first("server quit", \&save_to_file);
 Irssi::signal_add("message nick", \&nick_changed);
 Irssi::command_bind("previous_nick_save", \&save_to_file);
-Irssi::command_bind("previous_nick_count", \&hash_count);
 Irssi::command_bind("previous_nick", \&search_previous)
