@@ -56,8 +56,8 @@ sub track_join {
         $hash{$mask} = $joined_nick;
     } else {
        my @nicks_list = split(/, /,$hash{$mask});
-       my @old_nicks = grep(!/$joined_nick/,@nicks_list);
-       my $nick_in_list = grep(/$joined_nick/,@nicks_list);
+       my @old_nicks = grep(!/^$joined_nick$/,@nicks_list);
+       my $nick_in_list = grep(/^$joined_nick$/,@nicks_list);
        if (!$nick_in_list) {
           $hash{$mask} = $hash{$mask} . ", $joined_nick";
           $previous = "Previously known as: " . join(", ", @nicks_list);
@@ -82,10 +82,9 @@ sub nick_changed {
     my $new_nick = conv($new_nick);
     my @spl   = split(/@/, $address);
     my $mask  = $spl[1];
-    
-    if (! (exists $hash{$mask} )) {
-        $hash{$mask} = $new_nick 
-    } else {
+    my @nicks_list = split(/, /,$hash{$mask});
+    my $nick_in_list = grep(/^$new_nick$/,@nicks_list);
+    if (!$nick_in_list) {
        $hash{$mask} = $hash{$mask} . ", $new_nick"
     }
  }
@@ -103,8 +102,8 @@ sub search_previous {
          my @mask_found = split(/@/,$found->{host});
          my $mask = $mask_found[1];
          my $all_matches = $hash{$mask};
-         my @all_matches_split = split /,/, $all_matches;
-         my $found_nicks = join(",", grep(!/$arg/, @all_matches_split));
+         my @all_matches_split = split(/, /, $all_matches);
+         my $found_nicks = join(", ", grep(!/^$arg$/, @all_matches_split));
 
          if ($found_nicks ne '') {
           Irssi::print("\cc03$arg\co" . " was previously known as " . "\cc04$found_nicks\co");
