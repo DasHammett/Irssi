@@ -42,6 +42,7 @@ sub conv {
     ($data = $data) =~ s/\^/##/g;
     ($data = $data) =~ s/\\/&&/g;
     ($data = $data) =~ s/\{/&&/g;
+    ($data = $data) =~ s/\}/&&/g;
     return $data;
 }
 
@@ -49,7 +50,7 @@ sub track_join {
     my ($server, $chan, $joined_nick, $address, $account, $realname) = @_;
     my $joined_nick= conv($joined_nick);
     my @spl   = split(/@/, $address);
-    my $mask  = $spl[1];
+    my $mask  = $spl[1] if($spl[1] !~ "QuieroChat" | $spl[1] !~ "&&");
     $previous = "";
     
     if (! (exists $hash{$mask} )) {
@@ -81,7 +82,7 @@ sub nick_changed {
     my ($server, $new_nick, $old_nick, $address) = @_;
     my $new_nick = conv($new_nick);
     my @spl   = split(/@/, $address);
-    my $mask  = $spl[1];
+    my $mask  = $spl[1] if($spl[1] !~ "QuieroChat" |  $spl[1] !~ "&&");
     my @nicks_list = split(/, /,$hash{$mask});
     my $nick_in_list = grep(/^$new_nick$/,@nicks_list);
     if (!$nick_in_list) {
